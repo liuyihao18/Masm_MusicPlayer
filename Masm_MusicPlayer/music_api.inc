@@ -52,3 +52,22 @@ unMute PROTO
 ; 返回：BOOL
 ;   - 若成功，则为TRUE
 ;   - 若失败，则为FALSE
+
+; 设置时间函数
+SetMusicTime PROTO,
+    time: DWORD         ; 设置的进度条时间，单位秒（s）
+; 返回：BOOL
+;   - 若成功，则为TRUE
+;   - 若失败，则为FALSE
+
+; 快进10s函数
+ForwardMusicTime PROTO,
+; 返回：BOOL
+;   - 若成功，则为TRUE
+;   - 若失败，则为FALSE
+
+; 退后10s函数
+BackwardMusicTime PROTO,
+; 返回：BOOL
+;   - 若成功，则为TRUE
+;   - 若失败，则为FALSE

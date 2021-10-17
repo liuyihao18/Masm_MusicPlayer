@@ -22,12 +22,14 @@ volume          DWORD       30003000h           ; ÒôÁ¿´óÐ¡0~F£¬¸ßËÄÎ»ÎªÓÒÉùµÀ£¬µ
 muted           BOOL        FALSE               ; ¾²Òô×´Ì¬
 totalTime       DWORD       0                   ; ÒôÀÖ×ÜÊ±³¤
 playedTime      DWORD       0                   ; ÒÑ¾­²¥·ÅµÄÊ±³¤
+totalRead       DWORD       0                   ; ÒôÀÖ£¨Êý×é£©³¤¶È
 haveRead        DWORD       0                   ; ÒÑ¾­¶ÁÈ¡µÄ£¨Êý×é£©³¤¶È
 
 ; ÐÅºÅÁ¿
 mutexPlaying    HANDLE      0                   ; ÔÊÐí²¥·Å×´Ì¬»¥³âÁ¿
 mutexIsPlaying  HANDLE      0                   ; ÕýÔÚ²¥·Å×´Ì¬»¥³âÁ¿
 canPlaying      HANDLE      0                   ; ²¥·ÅÈ¨
+mutexRead       HANDLE      0                   ; ²¥·Å½ø¶È»¥³âÁ¿
 
 ; ×Ö·û´®³£Á¿
 wavExtension    BYTE        ".wav", 0           ; wavÎÄ¼þÀ©Õ¹Ãû
@@ -36,6 +38,7 @@ eventDescript   BYTE        "PCM WRITE", 0      ; ÏûÏ¢ÃèÊö
 s1Descript      BYTE        "mutexPlaying", 0   ; ÐÅºÅÁ¿1
 s2Descript      BYTE        "mutexIsPlaying", 0 ; ÐÅºÅÁ¿2
 s3Descript      BYTE        "CanPlaying", 0     ; ÐÅºÅÁ¿3
+s4Descript      BYTE        "mutexRead", 0      ; ÐÅºÅÁ¿4
 
 .code
 
@@ -251,6 +254,8 @@ next:
     mov     edx, 0
     div     waveFormat.nAvgBytesPerSec
     mov     totalTime, eax
+    mov     eax, musicSize
+    mov     totalRead, eax
     
     ; ´´½¨»Øµ÷ÊÂ¼þ
     INVOKE  CreateEvent,
@@ -308,12 +313,34 @@ next:
             mutexIsPlaying,
             1,
             NULL
-
+    
+    INVOKE  WaitForSingleObject,
+            mutexRead,
+            INFINITE
     mov     haveRead, 0
+    INVOKE  ReleaseSemaphore,
+            mutexRead,
+            1,
+            NULL
     ; Ñ­»·¿ªÊ¼
 L1:
     mov     eax, bufferSize
     mov     realRead, eax
+    ; Ö¡¶ÔÆë
+    mov     eax, haveRead
+    mov     edx, 0
+    div     bufferSize
+    mul     bufferSize
+    push    eax
+    INVOKE  WaitForSingleObject,
+            mutexRead,
+            INFINITE
+    pop     eax
+    mov     haveRead, eax
+    INVOKE  ReleaseSemaphore,
+            mutexRead,
+            1,
+            NULL
     mov     over, FALSE
     cmp     isPlaying, TRUE
     jne     L4
@@ -333,7 +360,18 @@ L2:
     cld
     rep     movsb
     mov     eax, realRead
+    push    eax
+    INVOKE  WaitForSingleObject,
+            mutexRead,
+            INFINITE
+    pop     eax
     add     haveRead, eax
+    push    eax
+    INVOKE  ReleaseSemaphore,
+            mutexRead,
+            1,
+            NULL
+    pop     eax
     cmp     eax, bufferSize
     jae     L3
     mov     over, TRUE
@@ -445,7 +483,7 @@ L1:
             OFFSET s2Descript
     cmp     eax, 0
     je      wrong
-    mov     mutexIsPlaying, 0
+    mov     mutexIsPlaying, eax
 L2:
     cmp     canPlaying, 0
     jne     L3
@@ -456,8 +494,19 @@ L2:
             OFFSET s3Descript
     cmp     eax, 0
     je      wrong
-    mov     canPlaying, 0
+    mov     canPlaying, eax
 L3:
+    cmp     mutexRead, 0
+    jne     L4
+    INVOKE  CreateSemaphore,
+            NULL,
+            1,
+            1,
+            OFFSET s4Descript
+    cmp     eax, 0
+    je      wrong
+    mov     mutexRead, eax
+L4:
     INVOKE  CreateThread,
             NULL,
             0,
@@ -518,7 +567,7 @@ ContinueMusic ENDP
 
 IncreaseVolume PROC
 ;   RETURN: BOOL
-    cmp     volume, F000F000h
+    cmp     volume, 0F000F000h
     je      wrong
     add     volume, 10001000h
     cmp     Playing, TRUE
@@ -589,5 +638,54 @@ wrong:
     mov     eax, FALSE
     ret
 unMute ENDP
+
+SetMusicTime PROC,
+    time: DWORD     ; ÉèÖÃµÄ½ø¶ÈÌõÊ±¼ä£¬µ¥Î»Ãë£¨s£©
+;   RETURN: BOOL
+    cmp     Playing, TRUE
+    jne     wrong
+    mov     eax, time
+    add     eax, 5
+    cmp     eax, totalTime
+    ja      wrong
+    mov     eax, time
+    mul     totalRead
+    div     totalTime
+    push    eax
+    INVOKE  WaitForSingleObject,
+            mutexRead,
+            INFINITE
+    pop     eax
+    mov     haveRead, eax
+    INVOKE  ReleaseSemaphore,
+            mutexRead,
+            1,
+            NULL
+    mov     eax, TRUE
+    ret
+wrong:
+    mov     eax, FALSE
+    ret
+SetMusicTime ENDP
+
+ForwardMusicTime PROC
+    mov     eax, playedTime
+    add     eax, 10
+    INVOKE  SetMusicTime, eax
+    ret
+ForwardMusicTime ENDP
+
+BackwardMusicTime PROC
+    mov     eax, playedTime
+    cmp     eax, 10
+    jb      L1
+    sub     eax, 10
+    jmp     L2
+L1:
+    mov     eax, 0
+L2:
+    INVOKE  SetMusicTime, eax
+    ret
+BackwardMusicTime ENDP
 
 END
