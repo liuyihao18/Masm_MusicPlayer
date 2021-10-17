@@ -52,7 +52,7 @@ s4Descript      BYTE        "mutexRead", 0      ; 信号量4
 ;     WORD  wBitsPerSample,  // 位数
 ;     WORD  cbSize,  // 额外格式信息，PCM格式忽略即可
 ; };
-GetWavFormat PROC USES ecx edx esi edi,
+GetWavFormat PROC PRIVATE USES ecx edx esi edi,
             hFile:                  HANDLE,                 ; 文件句柄
             format:                 PTR WAVEFORMATEX        ; 指向结构体的指针
     LOCAL   buffer[WAV_HEAD_SIZE]:  BYTE,                   ; 读取文件的Buffer
@@ -91,7 +91,7 @@ wrong:
     ret
 GetWavFormat ENDP
 
-GetWavToBuffer PROC USES ecx edx edi,
+GetWavToBuffer PROC PRIVATE USES ecx edx edi,
             hFile:              HANDLE,         ; 文件句柄
             musicBufferSize:    PTR DWORD       ; 指向音乐缓冲区大小的指针
     LOCAL   musicSize:          DWORD,          ; 音乐文件大小
@@ -141,7 +141,7 @@ wrong:
     ret
 GetWavToBuffer ENDP
 
-GetMinBufferSize PROC USES ebx edx,
+GetMinBufferSize PROC PRIVATE USES ebx edx,
             format:     WAVEFORMATEX        ; 文件格式
 ;   RETURN: DWORD
     mov     eax, 64
@@ -154,7 +154,7 @@ GetMinBufferSize PROC USES ebx edx,
     ret
 GetMinBufferSize ENDP
 
-_PlayMusic PROC USES edx esi edi,
+_PlayMusic PROC PRIVATE USES edx esi edi,
             filename:       PTR BYTE            ; 文件名
      LOCAL  filenameLength: DWORD,              ; 文件名长度
             musicType:      DWORD,              ; 音乐类型
@@ -342,23 +342,28 @@ L1:
             1,
             NULL
     mov     over, FALSE
+    ; 根据是否暂停填充不同数据
     cmp     isPlaying, TRUE
     jne     L4
+    ; 不暂停
     mov     eax, realRead
     add     eax, haveRead
+    ; 判断是否到缓冲区末尾
     cmp     eax, musicSize
     jb      L2
+    ; 到了
     mov     eax, musicSize
     sub     eax, haveRead
     dec     eax
     mov     realRead, eax
-L2: 
+L2: ; 没到
     mov     esi, musicBuffer
     add     esi, haveRead
     mov     edi, buffer
     mov     ecx, realRead
     cld
     rep     movsb
+    ; 更新参数
     mov     eax, realRead
     push    eax
     INVOKE  WaitForSingleObject,
@@ -372,12 +377,14 @@ L2:
             1,
             NULL
     pop     eax
+    ; 判断是否结束
     cmp     eax, bufferSize
     jae     L3
     mov     over, TRUE
 L3:
     jmp     L5
 L4:
+    ; 若暂停
     mov     al, 0
     mov     edi, buffer
     mov     ecx, realRead
@@ -413,6 +420,8 @@ L5:
     INVOKE  WaitForSingleObject,
             hEvent,
             INFINITE
+    
+    ; 更新参数
     mov     eax, haveRead
     mov     edx, 0
     mul     totalTime
@@ -435,6 +444,15 @@ L6:
             NULL
     mov     playedTime, 0
     mov     totalTime, 0
+    INVOKE  WaitForSingleObject,
+            mutexRead,
+            INFINITE
+    mov     haveRead, 0
+    INVOKE  ReleaseSemaphore,
+            mutexRead,
+            1,
+            NULL
+    mov     totalRead, 0
     INVOKE  free, buffer    
     INVOKE  Sleep, 500
     INVOKE  waveOutClose,
@@ -445,6 +463,10 @@ L6:
 
 ; 正确
 right:
+    INVOKE  ReleaseSemaphore, 
+            canPlaying, 
+            1, 
+            NULL
     mov     eax, TRUE
     ret
 ; 错误
