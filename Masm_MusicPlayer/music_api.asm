@@ -226,9 +226,22 @@ next:
             CALLBACK_EVENT
     cmp     eax, MMSYSERR_NOERROR
     jne     closeEventHandle
-    jmp     right
+    
+    ; 设置音量
+    INVOKE  waveOutSetVolume,
+            hWaveOut,
+            volume
+    cmp     eax, MMSYSERR_NOERROR
+    jne     closeEventHandle
 
 
+
+; 正确
+right:
+    mov     eax, TRUE
+    ret
+
+; 错误
 closeEventHandle:
     INVOKE  CloseHandle, hEvent
 freeMemory:
@@ -238,9 +251,6 @@ closeFileHandle:
 wrong:
     mov     eax, FALSE
     ret    
-right:
-    mov     eax, TRUE
-    ret
 _PlayMusic ENDP
 
 PlayMusic PROC USES ebx,
