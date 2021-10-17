@@ -9,6 +9,9 @@ hFile       DWORD           ?
 .code
 main PROC
     INVOKE  PlayMusic,  OFFSET filename
+L1:
+    INVOKE  Sleep, 10000
+    jmp     L1
     INVOKE  ExitProcess, 0
 main ENDP
 

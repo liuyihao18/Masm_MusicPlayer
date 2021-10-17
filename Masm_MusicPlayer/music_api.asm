@@ -18,7 +18,7 @@ WAV_HEAD_SIZE = 44
 Playing         BOOL        FALSE               ; 允许播放状态
 isPlaying       BOOL        FALSE               ; 正在播放状态
 hWaveOut        HANDLE      0                   ; 音频输出设备句柄
-volume          DWORD       30003000h           ; 音量大小
+volume          DWORD       30003000h           ; 音量大小0~F，高四位为右声道，低四位为左声道
 muted           BOOL        FALSE               ; 静音状态
 totalTime       DWORD       0                   ; 音乐总时长
 playedTime      DWORD       0                   ; 已经播放的时长
@@ -473,5 +473,121 @@ wrong:
     mov     eax, FALSE
     ret
 PlayMusic ENDP
+
+StopMusic PROC
+;   RETURN: BOOL
+    INVOKE  WaitForSingleObject,
+            mutexPlaying,
+            INFINITE
+    mov     Playing, FALSE
+    INVOKE  ReleaseSemaphore,
+            mutexPlaying,
+            1,
+            NULL
+    mov     eax, TRUE
+    ret
+StopMusic ENDP
+
+PauseMusic PROC
+;   RETURN: BOOL
+    INVOKE  WaitForSingleObject,
+            mutexIsPlaying,
+            INFINITE
+    mov     isPlaying, FALSE
+    INVOKE  ReleaseSemaphore,
+            mutexIsPlaying,
+            1,
+            NULL
+    mov     eax, TRUE
+    ret
+PauseMusic ENDP
+
+ContinueMusic PROC
+;   RETURN: BOOL
+    INVOKE  WaitForSingleObject,
+            mutexIsPlaying,
+            INFINITE
+    mov     isPlaying, TRUE
+    INVOKE  ReleaseSemaphore,
+            mutexIsPlaying,
+            1,
+            NULL
+    mov     eax, TRUE
+    ret
+ContinueMusic ENDP
+
+IncreaseVolume PROC
+;   RETURN: BOOL
+    cmp     volume, F000F000h
+    je      wrong
+    add     volume, 10001000h
+    cmp     Playing, TRUE
+    jne     L1
+    cmp     muted, TRUE
+    je      L1
+    INVOKE  waveOutSetVolume,
+            hWaveOut,
+            volume
+    cmp     eax, MMSYSERR_NOERROR
+    jne     wrong
+L1:
+    mov     eax, TRUE
+    ret
+wrong:
+    mov     eax, FALSE
+    ret
+IncreaseVolume ENDP
+
+DecreaseVolume PROC
+;   RETURN: BOOL
+    cmp     volume, 00000000h
+    je      wrong
+    sub     volume, 10001000h
+    cmp     Playing, TRUE
+    jne     L1
+    cmp     muted, TRUE
+    je      L1
+    INVOKE  waveOutSetVolume,
+            hWaveOut,
+            volume
+    cmp     eax, MMSYSERR_NOERROR
+    jne     wrong
+L1:
+    mov     eax, TRUE
+    ret
+wrong:
+    mov     eax, FALSE
+    ret
+DecreaseVolume ENDP
+
+Mute PROC
+;   RETURN: BOOL
+    INVOKE  waveOutSetVolume,
+            hWaveOut,
+            0
+    cmp     eax, MMSYSERR_NOERROR
+    jne     wrong
+    mov     muted, TRUE
+    mov     eax, TRUE
+    ret
+wrong:
+    mov     eax, FALSE
+    ret
+Mute ENDP
+
+unMute PROC
+;   RETURN: BOOL
+    INVOKE  waveOutSetVolume,
+            hWaveOut,
+            volume
+    cmp     eax, MMSYSERR_NOERROR
+    jne     wrong
+    mov     muted, FALSE
+    mov     eax, TRUE
+    ret
+wrong:
+    mov     eax, FALSE
+    ret
+unMute ENDP
 
 END
