@@ -1,4 +1,6 @@
 ; music_api.inc
+INCLUDE     Winmm.inc
+INCLUDELIB  Winmm.lib
 
 ; 音乐类型
 WAV = 1
@@ -7,7 +9,7 @@ MP3 = 2
 ; 播放音乐函数
 PlayMusic PROTO,
     filename: PTR CHAR  ; 指向文件名的指针
-; 返回：DWORD
+; 返回：BOOL
 ;   - 若成功，则为TRUE
 ;   - 若失败，则为FALSE
 

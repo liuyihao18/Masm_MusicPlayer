@@ -1,4 +1,5 @@
 ; util.inc
+INCLUDELIB  util.lib
 
 ; MPC½âÂëº¯Êý
 DecodeMp3ToBuffer PROTO,
