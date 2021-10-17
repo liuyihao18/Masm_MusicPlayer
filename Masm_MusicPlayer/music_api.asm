@@ -5,6 +5,9 @@ INCLUDE music_api.inc
 INCLUDE util.inc
 
 .data
+; 参数
+WAV_HEAD_SIZE = 44
+
 ; 状态量
 Playing         BOOL        FALSE           ; 允许播放状态
 isPlaying       BOOL        FALSE           ; 正在播放状态
@@ -21,6 +24,56 @@ mutexIsPlaying  HANDLE      0               ; 正在播放状态互斥量
 canPlaying      HANDLE      0               ; 播放权
 
 .code
+
+; 格式说明
+; WAVEFORMATEX{
+;     WORD  wFormatTag,  // 波形-音频格式类型：PCM
+;     WORD  nChannels,  // 声道数
+;     DWORD nSamplesPerSec,  // 采样频率
+;     DWORD nAvgBytesPerSec,  // 平均数据传输速率 = 采样频率 * 块对齐
+;     WORD  nBlockAlign,  // 块对齐 = 声道数 * 位数 / 8
+;     WORD  wBitsPerSample,  // 位数
+;     WORD  cbSize,  // 额外格式信息，PCM格式忽略即可
+; };
+GetWavFormat PROC USES ecx edx esi edi,
+            hFile:                  HANDLE,                 ; 文件句柄
+            format:                 PTR WAVEFORMATEX        ; 指向结构体的指针
+    LOCAL   buffer[WAV_HEAD_SIZE]:  BYTE                    ; 读取文件的Buffer
+            realRead:               DWORD                   ; 实际读取的字节数
+;   RETURN: BOOL 
+    lea     esi, buffer
+    lea     edx, realRead
+    INVOKE  ReadFile,
+            hFile,
+            esi,                                            ; 缓冲区地址
+            WAV_HEAD_SIZE,
+            edx,
+            NULL
+    cmp     eax, 0
+    je      wrong
+    mov     eax, realRead
+    cmp     eax, WAV_HEAD_SIZE
+    jb      wrong
+    ; 结构体清空
+    mov     al, 0
+    mov     edi, format
+    mov     ecx, SIZEOF WAVEFORMATEX
+    cld
+    rep     stob
+    ; 结构体填充
+    add     esi, 20
+    mov     edi, format
+    mov     ecx, 16
+    cld
+    rep     movsb
+    jmp     right
+wrong:
+    mov     eax, FALSE
+    ret
+right:
+    mov     eax, TRUE
+    ret
+GetWavFormat ENDP
 
 _PlayMusic PROC USES ebx,
     filename: PTR BYTE,             ; 文件名
