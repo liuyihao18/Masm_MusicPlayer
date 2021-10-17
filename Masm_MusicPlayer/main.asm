@@ -4,13 +4,32 @@ INCLUDE     music_api.inc
 
 .data
 filename    BYTE            "1.wav", 0
-hFile       DWORD           ?
 
 .code
 main PROC
-    INVOKE  PlayMusic,  OFFSET filename
 L1:
-    INVOKE  Sleep, 1000
+    INVOKE  PlayMusic,  OFFSET filename
+    INVOKE  Sleep, 3000
+    INVOKE  PauseMusic
+    INVOKE  Sleep, 3000
+    INVOKE  ContinueMusic
+    INVOKE  Sleep, 3000
+    INVOKE  Mute
+    INVOKE  Sleep, 3000
+    INVOKE  unMute
+    INVOKE  Sleep, 3000
+    INVOKE  IncreaseVolume
+    INVOKE  Sleep, 3000
+    INVOKE  DecreaseVolume
+    INVOKE  Sleep, 3000
+    INVOKE  ForwardMusicTime
+    INVOKE  Sleep, 3000
+    INVOKE  BackwardMusicTime
+    INVOKE  Sleep, 3000
+    INVOKE  SetMusicTime, 150
+    INVOKE  Sleep, 3000
+    INVOKE  StopMusic
+    INVOKE  Sleep, 3000
     jmp     L1
     INVOKE  ExitProcess, 0
 main ENDP

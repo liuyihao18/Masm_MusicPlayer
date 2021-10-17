@@ -280,11 +280,14 @@ next:
     jne     closeEventHandle
     
     ; 设置音量
+    cmp     muted, TRUE
+    je      ignore
     INVOKE  waveOutSetVolume,
             hWaveOut,
             volume
     cmp     eax, MMSYSERR_NOERROR
     jne     closeEventHandle
+ignore:
 
     ; 计算缓存大小
     INVOKE  GetMinBufferSize, waveFormat
@@ -589,7 +592,7 @@ ContinueMusic ENDP
 
 IncreaseVolume PROC
 ;   RETURN: BOOL
-    cmp     volume, 0F000F000h
+    cmp     volume, 0F000F000h          ; 是否达到最大值
     je      wrong
     add     volume, 10001000h
     cmp     Playing, TRUE
@@ -611,7 +614,7 @@ IncreaseVolume ENDP
 
 DecreaseVolume PROC
 ;   RETURN: BOOL
-    cmp     volume, 00000000h
+    cmp     volume, 00000000h           ; 是否达到最小值
     je      wrong
     sub     volume, 10001000h
     cmp     Playing, TRUE
@@ -633,12 +636,15 @@ DecreaseVolume ENDP
 
 Mute PROC
 ;   RETURN: BOOL
+    cmp     Playing, TRUE
+    jne     L1
     INVOKE  waveOutSetVolume,
             hWaveOut,
             0
     cmp     eax, MMSYSERR_NOERROR
     jne     wrong
     mov     muted, TRUE
+L1:
     mov     eax, TRUE
     ret
 wrong:
@@ -648,12 +654,15 @@ Mute ENDP
 
 unMute PROC
 ;   RETURN: BOOL
+    cmp     Playing, TRUE
+    jne     L1
     INVOKE  waveOutSetVolume,
             hWaveOut,
             volume
     cmp     eax, MMSYSERR_NOERROR
     jne     wrong
     mov     muted, FALSE
+L1:
     mov     eax, TRUE
     ret
 wrong:
