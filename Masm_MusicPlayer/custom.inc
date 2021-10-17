@@ -5,8 +5,5 @@
 option casemap: none    ; 指明大小写敏感
 
 INCLUDE     windows.inc
-INCLUDELIB  windows.inc
 INCLUDE     user32.inc
-INCLUDELIB  user32.lib
 INCLUDE     kernel32.inc
-INCLUDELIB  kernel32.lib
