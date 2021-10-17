@@ -156,6 +156,12 @@ _PlayMusic PROC USES edx esi edi,
             musicSize:      DWORD,              ; 音乐大小
             waveFormat:     WAVEFORMATEX,       ; 音乐格式
             hEvent:         HANDLE              ; 回调事件句柄
+    LOCAL   buffer:         PTR BYTE,           ; 播放缓冲
+            bufferSize:     DWORD,              ; 播放缓冲大小
+            realRead:       DWORD,              ; 实际播放大小
+            over:           DWORD,              ; 结束标志
+            waveHdr:        WAVEHDR             ; 播放头
+;   RETURN: BOOL
 
     ; 准备播放
     mov     Playing, FALSE
@@ -239,8 +245,106 @@ next:
     cmp     eax, MMSYSERR_NOERROR
     jne     closeEventHandle
 
-    ; 
+    ; 计算缓存大小
+    INVOKE  GetMinBufferSize, waveFormat
+    mov     bufferSize, eax
+    INVOKE  malloc, bufferSize
+    cmp     eax, NULL
+    je      closeEventHandle
+    mov     buffer, eax
 
+    ; 开始播放
+    mov     Playing, TRUE
+
+    ; 正在播放
+    mov     isPlaying, TRUE
+
+    mov     haveRead, 0
+    ; 循环开始
+L1:
+    mov     eax, bufferSize
+    mov     realRead, eax
+    mov     over, FALSE
+.if     isPlaying == TRUE
+    mov     eax, realRead
+    add     eax, haveRead
+    cmp     eax, musicSize
+    jb      L2
+    mov     eax, musicSize
+    sub     eax, haveRead
+    dec     eax
+    mov     realRead, eax
+L2: 
+    mov     esi, musicBuffer
+    add     esi, haveRead
+    mov     edi, buffer
+    mov     ecx, realRead
+    cld
+    rep     movsb
+    mov     eax, realRead
+    add     haveRead, eax
+    cmp     eax, bufferSize
+    jae     L3
+    mov     over, TRUE
+L3:
+.else
+    mov     al, 0
+    mov     edi, buffer
+    mov     ecx, realRead
+    cld
+    rep     stosb
+.endif
+    ; 组装
+    mov     eax, buffer
+    mov     waveHdr.lpData, eax
+    mov     eax, realRead
+    mov     waveHdr.dwBufferLength, eax
+    mov     waveHdr.dwBytesRecorded, 0
+    mov     waveHdr.dwUser, NULL
+    mov     waveHdr.dwFlags, 0
+    mov     waveHdr.dwLoops, 1
+    mov     waveHdr.lpNext, NULL
+    mov     waveHdr.Reserved, NULL
+
+    ; 送入音卡
+    lea     esi, waveHdr
+    INVOKE  waveOutPrepareHeader,
+            hWaveOut,
+            esi,
+            SIZEOF WAVEHDR
+    cmp     eax, MMSYSERR_NOERROR
+    jne     L4
+    INVOKE  waveOutWrite,
+            hWaveOut,
+            esi,
+            SIZEOF WAVEHDR
+    cmp     eax, MMSYSERR_NOERROR
+    jne     L4
+    INVOKE  WaitForSingleObject,
+            hEvent,
+            INFINITE
+    mov     eax, haveRead
+    mov     edx, 0
+    mul     totalTime
+    div     musicSize
+    mov     playedTime, eax
+    cmp     over, TRUE
+    je      L4
+    cmp     Playing, FALSE
+    je      L4
+    jmp     L1
+L4:
+    ; 循环结束
+    mov     Playing, FALSE
+    mov     playedTime, 0
+    mov     totalTime, 0
+    INVOKE  free, buffer    
+    INVOKE  Sleep, 500
+    INVOKE  waveOutClose,
+            hWaveOut
+    INVOKE  free, musicBuffer    
+    INVOKE  CloseHandle, hEvent
+    INVOKE  CloseHandle, hFile
 
 ; 正确
 right:
