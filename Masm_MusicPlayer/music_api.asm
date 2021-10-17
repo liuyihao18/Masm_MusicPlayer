@@ -15,22 +15,27 @@ free PROTO C: DWORD     ; 动态释放内存
 WAV_HEAD_SIZE = 44
 
 ; 状态量
-Playing         BOOL        FALSE           ; 允许播放状态
-isPlaying       BOOL        FALSE           ; 正在播放状态
-hWaveOut        HANDLE      0               ; 音频输出设备句柄
-volume          DWORD       30003000h       ; 音量大小
-muted           BOOL        FALSE           ; 静音状态
-totalTime       DWORD       0               ; 音乐总时长
-playedTime      DWORD       0               ; 已经播放的时长
-haveRead        DWORD       0               ; 已经读取的（数组）长度
+Playing         BOOL        FALSE               ; 允许播放状态
+isPlaying       BOOL        FALSE               ; 正在播放状态
+hWaveOut        HANDLE      0                   ; 音频输出设备句柄
+volume          DWORD       30003000h           ; 音量大小
+muted           BOOL        FALSE               ; 静音状态
+totalTime       DWORD       0                   ; 音乐总时长
+playedTime      DWORD       0                   ; 已经播放的时长
+haveRead        DWORD       0                   ; 已经读取的（数组）长度
 
 ; 信号量
-mutexPlaying    HANDLE      0               ; 允许播放状态互斥量
-mutexIsPlaying  HANDLE      0               ; 正在播放状态互斥量
-canPlaying      HANDLE      0               ; 播放权
+mutexPlaying    HANDLE      0                   ; 允许播放状态互斥量
+mutexIsPlaying  HANDLE      0                   ; 正在播放状态互斥量
+canPlaying      HANDLE      0                   ; 播放权
 
 ; 字符串常量
-eventDescript   BYTE        "PCM WRITE", 0  ; 消息描述
+wavExtension    BYTE        ".wav", 0           ; wav文件扩展名
+mp3Extension    BYTE        ".mp3", 0           ; mp3文件扩展名
+eventDescript   BYTE        "PCM WRITE", 0      ; 消息描述
+s1Descript      BYTE        "mutexPlaying", 0   ; 信号量1
+s2Descript      BYTE        "mutexIsPlaying", 0 ; 信号量2
+s3Descript      BYTE        "CanPlaying", 0     ; 信号量3
 
 .code
 
@@ -75,12 +80,11 @@ GetWavFormat PROC USES ecx edx esi edi,
     mov     ecx, 16
     cld
     rep     movsb
-    jmp     right
-wrong:
-    mov     eax, FALSE
-    ret
 right:
     mov     eax, TRUE
+    ret
+wrong:
+    mov     eax, FALSE
     ret
 GetWavFormat ENDP
 
@@ -121,17 +125,16 @@ GetWavToBuffer PROC USES ecx edx edi,
     mov     eax, realRead
     cmp     eax, musicSize
     jb      freeMemory
-    jmp     right
-freeMemory:
-    INVOKE  free, musicBuffer
-wrong:
-    mov     eax, NULL
-    ret
 right:
     mov     eax, realRead
     mov     edi, musicBufferSize
     mov     [edi], eax
     mov     eax, musicBuffer
+    ret
+freeMemory:
+    INVOKE  free, musicBuffer
+wrong:
+    mov     eax, NULL
     ret
 GetWavToBuffer ENDP
 
@@ -149,9 +152,10 @@ GetMinBufferSize PROC USES ebx edx,
 GetMinBufferSize ENDP
 
 _PlayMusic PROC USES edx esi edi,
-            filename:       PTR BYTE,           ; 文件名
-            musicType:      DWORD               ; 音乐类型
-    LOCAL   hFile:          HANDLE,             ; 文件句柄
+            filename:       PTR BYTE            ; 文件名
+     LOCAL  filenameLength: DWORD,              ; 文件名长度
+            musicType:      DWORD,              ; 音乐类型
+            hFile:          HANDLE,             ; 文件句柄
             musicBuffer:    PTR BYTE,           ; 音乐缓冲区
             musicSize:      DWORD,              ; 音乐大小
             waveFormat:     WAVEFORMATEX,       ; 音乐格式
@@ -162,9 +166,41 @@ _PlayMusic PROC USES edx esi edi,
             over:           DWORD,              ; 结束标志
             waveHdr:        WAVEHDR             ; 播放头
 ;   RETURN: BOOL
+    
+    ; 判断文件格式
+    INVOKE  lstrlen, filename
+    cmp     eax, 5
+    jb      wrong
+    mov     filenameLength, eax
+    mov     esi, filename
+    add     esi, filenameLength
+    sub     esi, 4
+    INVOKE  lstrcmp, esi, OFFSET wavExtension
+    cmp     eax, 0
+    je      isWav
+    INVOKE  lstrcmp, esi, OFFSET mp3Extension
+    cmp     eax, 0
+    je      isMp3
+    jmp     wrong
+isWav:
+    mov     musicType, WAV
+    jmp     after
+isMp3:
+    mov     musicType, MP3
+after:
 
     ; 准备播放
+    INVOKE  WaitForSingleObject,
+            mutexPlaying,
+            INFINITE
     mov     Playing, FALSE
+    INVOKE  ReleaseSemaphore,
+            mutexPlaying,
+            1,
+            NULL
+    INVOKE  WaitForSingleObject,
+            canPlaying,
+            INFINITE
 
     ; 处理文件
     INVOKE  CreateFile,
@@ -254,10 +290,24 @@ next:
     mov     buffer, eax
 
     ; 开始播放
+    INVOKE  WaitForSingleObject,
+            mutexPlaying,
+            INFINITE
     mov     Playing, TRUE
+    INVOKE  ReleaseSemaphore,
+            mutexPlaying,
+            1,
+            NULL
 
     ; 正在播放
+    INVOKE  WaitForSingleObject,
+            mutexIsPlaying,
+            INFINITE
     mov     isPlaying, TRUE
+    INVOKE  ReleaseSemaphore,
+            mutexIsPlaying,
+            1,
+            NULL
 
     mov     haveRead, 0
     ; 循环开始
@@ -337,7 +387,14 @@ L5:
     jmp     L1
 L6:
     ; 循环结束
+    INVOKE  WaitForSingleObject,
+            mutexPlaying,
+            INFINITE
     mov     Playing, FALSE
+    INVOKE  ReleaseSemaphore,
+            mutexPlaying,
+            1,
+            NULL
     mov     playedTime, 0
     mov     totalTime, 0
     INVOKE  free, buffer    
@@ -365,8 +422,55 @@ wrong:
 _PlayMusic ENDP
 
 PlayMusic PROC USES ebx,
-    filename: PTR BYTE
-    INVOKE  _PlayMusic, filename, WAV
+            filename:   PTR BYTE    ; 文件名
+;   RETURN: BOOL
+    ; 初始创建信号量
+    cmp     mutexPlaying, 0
+    jne     L1
+    INVOKE  CreateSemaphore,
+            NULL,
+            1,
+            1,
+            OFFSET s1Descript
+    cmp     eax, 0
+    je      wrong
+    mov     mutexPlaying, eax
+L1:
+    cmp     mutexIsPlaying, 0
+    jne     L2
+    INVOKE  CreateSemaphore,
+            NULL,
+            1,
+            1,
+            OFFSET s2Descript
+    cmp     eax, 0
+    je      wrong
+    mov     mutexIsPlaying, 0
+L2:
+    cmp     canPlaying, 0
+    jne     L3
+    INVOKE  CreateSemaphore,
+            NULL,
+            1,
+            1,
+            OFFSET s3Descript
+    cmp     eax, 0
+    je      wrong
+    mov     canPlaying, 0
+L3:
+    INVOKE  CreateThread,
+            NULL,
+            0,
+            _PlayMusic,             ; 线程调用的函数名            
+            filename,               ; 线程调用传入的参数
+            0,
+            NULL
+    cmp     eax, NULL
+    je      wrong
+    mov     eax, TRUE
+    ret
+wrong:
+    mov     eax, FALSE
     ret
 PlayMusic ENDP
 
