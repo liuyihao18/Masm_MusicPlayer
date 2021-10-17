@@ -29,10 +29,7 @@
     <None Include="custom.inc">
       <Filter>头文件</Filter>
     </None>
-    <None Include="util.inc">
-      <Filter>头文件</Filter>
-    </None>
-    <None Include="c.inc">
+    <None Include="my_music.inc">
       <Filter>头文件</Filter>
     </None>
   </ItemGroup>

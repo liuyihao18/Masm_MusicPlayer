@@ -1,6 +1,4 @@
 ; music_api.inc
-INCLUDE     Winmm.inc
-INCLUDELIB  Winmm.lib
 
 ; “Ù¿÷¿‡–Õ
 WAV = 1

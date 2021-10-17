@@ -1,9 +1,14 @@
 ; music_api.asm 
 
-INCLUDE custom.inc
-INCLUDE music_api.inc
-INCLUDE util.inc
-INCLUDE c.inc
+INCLUDE     custom.inc
+INCLUDE     music_api.inc
+INCLUDE     my_music.inc
+INCLUDE     Winmm.inc
+INCLUDELIB  Winmm.lib
+INCLUDELIB  msvcrt.lib
+
+malloc PROTO C: DWORD   ; 动态分配内存
+free PROTO C: DWORD     ; 动态释放内存
 
 .data
 ; 参数
@@ -234,13 +239,13 @@ next:
     cmp     eax, MMSYSERR_NOERROR
     jne     closeEventHandle
 
+    ; 
 
 
 ; 正确
 right:
     mov     eax, TRUE
     ret
-
 ; 错误
 closeEventHandle:
     INVOKE  CloseHandle, hEvent

@@ -1,5 +1,5 @@
 ; util.inc
-INCLUDELIB  util.lib
+INCLUDELIB  my_music.lib
 
 ; MPC解码函数
 DecodeMp3ToBuffer PROTO,
@@ -16,4 +16,3 @@ GetMp3Format PROTO,
 ; 返回：BOOL
 ;   - 若成功，返回TRUE
 ;   - 若失败，返回FALSE
-
