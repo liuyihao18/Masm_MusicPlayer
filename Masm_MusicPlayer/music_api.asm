@@ -460,7 +460,17 @@ L6:
     INVOKE  Sleep, 500
     INVOKE  waveOutClose,
             hWaveOut
-    INVOKE  free, musicBuffer    
+    cmp     musicType, WAV
+    je      L7
+    cmp     musicType, MP3
+    je      L8
+    jmp     L9
+L7:
+    INVOKE  free, musicBuffer
+    jmp     L9
+L8:
+    INVOKE  DeleteMp3Buffer, musicBuffer
+L9:
     INVOKE  CloseHandle, hEvent
     INVOKE  CloseHandle, hFile
 
