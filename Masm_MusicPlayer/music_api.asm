@@ -34,6 +34,8 @@ mutexRead       HANDLE      0                   ; 播放进度互斥量
 ; 字符串常量
 wavExtension    BYTE        ".wav", 0           ; wav文件扩展名
 mp3Extension    BYTE        ".mp3", 0           ; mp3文件扩展名
+flacExtension   BYTE        ".flac", 0          ; flac文件扩展名
+tempFilename    BYTE        "__temp__.wav", 0   ; 临时文件名
 eventDescript   BYTE        "PCM WRITE", 0      ; 消息描述
 s1Descript      BYTE        "mutexPlaying", 0   ; 信号量1
 s2Descript      BYTE        "mutexIsPlaying", 0 ; 信号量2
@@ -178,18 +180,27 @@ _PlayMusic PROC PRIVATE USES edx esi edi,
     mov     esi, filename
     add     esi, filenameLength
     sub     esi, 4
-    INVOKE  lstrcmp, esi, OFFSET wavExtension
+    INVOKE  lstrcmp, esi, ADDR wavExtension
     cmp     eax, 0
     je      isWav
-    INVOKE  lstrcmp, esi, OFFSET mp3Extension
+    INVOKE  lstrcmp, esi, ADDR mp3Extension
     cmp     eax, 0
     je      isMp3
+    cmp     filenameLength, 6
+    jb      wrong
+    dec     esi
+    INVOKE  lstrcmp, esi, ADDR flacExtension
+    cmp     eax, 0
+    je      isFlac
     jmp     wrong
 isWav:
     mov     musicType, WAV
     jmp     after
 isMp3:
     mov     musicType, MP3
+    jmp     after
+isFlac:
+    mov     musicType, FLAC
 after:
 
     ; 准备播放
@@ -223,22 +234,12 @@ after:
     je      wav
     cmp     musicType, MP3
     je      mp3
+    cmp     musicType, FLAC
+    je      flac
     jmp     closeFileHandle
-wav:
-    ; 获取音频你格式
-    lea     edi, waveFormat
-    INVOKE  GetWavFormat, hFile, edi
-    cmp     eax, FALSE
-    je      closeFileHandle
-    ; 获取音频内容
-    lea     edi, musicSize
-    INVOKE  GetWavToBuffer, hFile, edi
-    cmp     eax, NULL
-    je      closeFileHandle
-    mov     musicBuffer, eax
-    jmp     next
+
 mp3:
-    ; 获取音频你格式
+    ; 获取音频格式
     lea     edi, waveFormat
     INVOKE  GetMp3Format, filename, edi
     cmp     eax, FALSE
@@ -249,6 +250,38 @@ mp3:
     cmp     eax, NULL
     je      closeFileHandle
     mov     musicBuffer, eax     
+    jmp     next
+flac:
+    ; 解码
+    INVOKE  CloseHandle, hFile
+    INVOKE  DecodeFlacToWav, filename, ADDR tempFilename
+    cmp     eax, FALSE
+    je      wrong
+    ; 打开临时文件
+    INVOKE  CreateFile,
+            ADDR tempFilename,               
+            GENERIC_READ,           
+            FILE_SHARE_READ,        
+            NULL,                  
+            OPEN_EXISTING,          
+            FILE_ATTRIBUTE_NORMAL,  
+            NULL                    
+    cmp     eax, INVALID_HANDLE_VALUE
+    je      wrong
+    mov     hFile, eax
+    ; 以下过程共用
+wav:
+    ; 获取音频格式
+    lea     edi, waveFormat
+    INVOKE  GetWavFormat, hFile, edi
+    cmp     eax, FALSE
+    je      closeFileHandle
+    ; 获取音频内容
+    lea     edi, musicSize
+    INVOKE  GetWavToBuffer, hFile, edi
+    cmp     eax, NULL
+    je      closeFileHandle
+    mov     musicBuffer, eax
 next:
     mov     eax, musicSize
     mov     edx, 0
@@ -270,7 +303,7 @@ next:
     ; 打开音频
     lea     esi, waveFormat
     INVOKE  waveOutOpen,
-            OFFSET hWaveOut,
+            ADDR hWaveOut,
             WAVE_MAPPER,
             esi,
             hEvent,
@@ -473,6 +506,7 @@ L8:
 L9:
     INVOKE  CloseHandle, hEvent
     INVOKE  CloseHandle, hFile
+    INVOKE  DeleteFile, ADDR tempFilename
 
 ; 正确
 right:
@@ -489,6 +523,7 @@ freeMemory:
     INVOKE  free, musicBuffer
 closeFileHandle:
     INVOKE  CloseHandle, hFile
+    INVOKE  DeleteFile, ADDR tempFilename
 wrong:
     mov     eax, FALSE
     ret    
@@ -504,7 +539,7 @@ PlayMusic PROC USES ebx,
             NULL,
             1,
             1,
-            OFFSET s1Descript
+            ADDR s1Descript
     cmp     eax, 0
     je      wrong
     mov     mutexPlaying, eax
@@ -515,7 +550,7 @@ L1:
             NULL,
             1,
             1,
-            OFFSET s2Descript
+            ADDR s2Descript
     cmp     eax, 0
     je      wrong
     mov     mutexIsPlaying, eax
@@ -526,7 +561,7 @@ L2:
             NULL,
             1,
             1,
-            OFFSET s3Descript
+            ADDR s3Descript
     cmp     eax, 0
     je      wrong
     mov     canPlaying, eax
@@ -537,7 +572,7 @@ L3:
             NULL,
             1,
             1,
-            OFFSET s4Descript
+            ADDR s4Descript
     cmp     eax, 0
     je      wrong
     mov     mutexRead, eax
@@ -600,11 +635,12 @@ ContinueMusic PROC
     ret
 ContinueMusic ENDP
 
-IncreaseVolume PROC
+
+SetVolume PROC,
+    new_volume: DWORD                   ; 设置的音量大小
 ;   RETURN: BOOL
-    cmp     volume, 0F000F000h          ; 是否达到最大值
-    je      wrong
-    add     volume, 10001000h
+    mov     eax, new_volume
+    mov     volume, eax
     cmp     Playing, TRUE
     jne     L1
     cmp     muted, TRUE
@@ -619,6 +655,19 @@ L1:
     ret
 wrong:
     mov     eax, FALSE
+    ret     
+SetVolume ENDP
+
+IncreaseVolume PROC
+;   RETURN: BOOL
+    cmp     volume, 0F000F000h          ; 是否达到最大值
+    je      wrong
+    mov     eax, volume
+    add     eax, 10001000h
+    INVOKE  SetVolume, eax
+    ret
+wrong:
+    mov     eax, FALSE
     ret
 IncreaseVolume ENDP
 
@@ -626,18 +675,9 @@ DecreaseVolume PROC
 ;   RETURN: BOOL
     cmp     volume, 00000000h           ; 是否达到最小值
     je      wrong
-    sub     volume, 10001000h
-    cmp     Playing, TRUE
-    jne     L1
-    cmp     muted, TRUE
-    je      L1
-    INVOKE  waveOutSetVolume,
-            hWaveOut,
-            volume
-    cmp     eax, MMSYSERR_NOERROR
-    jne     wrong
-L1:
-    mov     eax, TRUE
+    mov     eax, volume
+    sub     eax, 10001000h
+    INVOKE  SetVolume, eax
     ret
 wrong:
     mov     eax, FALSE
@@ -728,5 +768,35 @@ L2:
     INVOKE  SetMusicTime, eax
     ret
 BackwardMusicTime ENDP
+
+GetPlaying PROC
+    mov     eax, Playing
+    ret
+GetPlaying ENDP
+
+GetIsPlaying PROC
+    mov     eax, isPlaying
+    ret
+GetIsPlaying ENDP
+
+GetVolume PROC
+    mov     eax, volume
+    ret
+GetVolume ENDP
+
+GetMuted PROC
+    mov     eax, muted
+    ret
+GetMuted ENDP
+
+GetTotalTime PROC
+    mov     eax, totalTime
+    ret
+GetTotalTime ENDP
+
+GetPlayedTime PROC
+    mov     eax, playedTime
+    ret
+GetPlayedTime ENDP
 
 END
