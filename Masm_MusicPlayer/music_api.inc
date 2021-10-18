@@ -71,3 +71,4 @@ BackwardMusicTime PROTO,
 ; 返回：BOOL
 ;   - 若成功，则为TRUE
 ;   - 若失败，则为FALSE
+

@@ -1,5 +1,6 @@
 ; util.inc
-INCLUDELIB  my_music.lib
+INCLUDELIB  my_mp3_music.lib
+INCLUDELIB  my_flac_music.lib
 
 ; MP3解码函数
 DecodeMp3ToBuffer PROTO,
@@ -18,6 +19,14 @@ DeleteMp3Buffer PROTO,
 GetMp3Format PROTO,
     filename:   PTR CHAR,           ; 文件名
     format:     PTR WAVEFORMATEX    ; 格式结构体指针
+; 返回：BOOL
+;   - 若成功，返回TRUE
+;   - 若失败，返回FALSE
+
+; FLAC文件解码函数
+DecodeFlacToWav PROTO,
+    infile:     PTR CHAR,           ; 输入文件名
+    outfile:    PTR CHAR            ; 输出文件名
 ; 返回：BOOL
 ;   - 若成功，返回TRUE
 ;   - 若失败，返回FALSE

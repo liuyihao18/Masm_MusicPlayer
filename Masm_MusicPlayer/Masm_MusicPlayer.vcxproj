@@ -97,7 +97,6 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\masm32\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <MASM>

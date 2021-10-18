@@ -1,14 +1,15 @@
 ; main.asm
 INCLUDE     custom.inc
 INCLUDE     music_api.inc
+INCLUDE     my_music.inc
 
 .data
-filename    BYTE            "1.wav", 0
+filename    BYTE    "1.wav", 0
 
 .code
 main PROC
 L1:
-    INVOKE  PlayMusic,  OFFSET filename
+    INVOKE  PlayMusic,  ADDR filename
     INVOKE  Sleep, 3000
     INVOKE  PauseMusic
     INVOKE  Sleep, 3000
