@@ -378,10 +378,6 @@ L1:
             1,
             NULL
     mov     over, FALSE
-    ; 根据是否暂停填充不同数据
-    cmp     isPlaying, TRUE
-    jne     L4
-    ; 不暂停
     mov     eax, realRead
     add     eax, haveRead
     ; 判断是否到缓冲区末尾
@@ -418,15 +414,6 @@ L2: ; 没到
     jae     L3
     mov     over, TRUE
 L3:
-    jmp     L5
-L4:
-    ; 若暂停
-    mov     al, 0
-    mov     edi, buffer
-    mov     ecx, realRead
-    cld
-    rep     stosb
-L5:
     ; 组装
     mov     eax, buffer
     mov     waveHdr.lpData, eax
@@ -446,13 +433,13 @@ L5:
             esi,
             SIZEOF WAVEHDR
     cmp     eax, MMSYSERR_NOERROR
-    jne     L6
+    jne     L4
     INVOKE  waveOutWrite,
             hWaveOut,
             esi,
             SIZEOF WAVEHDR
     cmp     eax, MMSYSERR_NOERROR
-    jne     L6
+    jne     L4
     INVOKE  WaitForSingleObject,
             hEvent,
             INFINITE
@@ -464,12 +451,21 @@ L5:
     div     musicSize
     mov     playedTime, eax
     cmp     Playing, FALSE
-    je      L6
+    je      L4
     cmp     over, TRUE
-    je      L6
+    je      L4
     jmp     L1
-L6:
-    ; 循环结束
+L4:
+    ; 循环结束        
+    INVOKE  WaitForSingleObject,
+            mutexIsPlaying,
+            INFINITE
+    mov     isPlaying, FALSE
+    INVOKE  ReleaseSemaphore,
+            mutexIsPlaying,
+            1,
+            NULL
+
     INVOKE  WaitForSingleObject,
             mutexPlaying,
             INFINITE
@@ -478,8 +474,10 @@ L6:
             mutexPlaying,
             1,
             NULL
+
     mov     playedTime, 0
     mov     totalTime, 0
+
     INVOKE  WaitForSingleObject,
             mutexRead,
             INFINITE
@@ -488,6 +486,7 @@ L6:
             mutexRead,
             1,
             NULL
+
     mov     totalRead, 0
     INVOKE  free, buffer    
     INVOKE  Sleep, 500
@@ -626,6 +625,11 @@ StopMusic ENDP
 
 PauseMusic PROC
 ;   RETURN: BOOL
+    cmp     Playing, FALSE
+    je      ignore
+    INVOKE  waveOutPause, hWaveOut
+    cmp     eax, MMSYSERR_NOERROR
+    jne     wrong
     cmp     mutexIsPlaying, 0
     je      ignore
     INVOKE  WaitForSingleObject,
@@ -639,10 +643,18 @@ PauseMusic PROC
 ignore:
     mov     eax, TRUE
     ret
+wrong:
+    mov     eax, FALSE
+    ret
 PauseMusic ENDP
 
 ContinueMusic PROC
 ;   RETURN: BOOL
+    cmp     Playing, FALSE
+    je      ignore
+    INVOKE  waveOutRestart, hWaveOut
+    cmp     eax, MMSYSERR_NOERROR
+    jne     wrong
     cmp     mutexIsPlaying, 0
     je      ignore
     INVOKE  WaitForSingleObject,
@@ -655,6 +667,9 @@ ContinueMusic PROC
             NULL
 ignore:
     mov     eax, TRUE
+    ret
+wrong:
+    mov     eax, FALSE
     ret
 ContinueMusic ENDP
 
