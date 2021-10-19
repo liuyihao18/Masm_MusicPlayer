@@ -226,7 +226,7 @@ after:
             FILE_ATTRIBUTE_NORMAL,  
             NULL                    
     cmp     eax, INVALID_HANDLE_VALUE
-    je      wrong
+    je      release
     mov     hFile, eax
 
     ; 处理音频文件
@@ -256,7 +256,7 @@ flac:
     INVOKE  CloseHandle, hFile
     INVOKE  DecodeFlacToWav, filename, ADDR tempFilename
     cmp     eax, FALSE
-    je      wrong
+    je      release
     ; 打开临时文件
     INVOKE  CreateFile,
             ADDR tempFilename,               
@@ -267,7 +267,7 @@ flac:
             FILE_ATTRIBUTE_NORMAL,  
             NULL                    
     cmp     eax, INVALID_HANDLE_VALUE
-    je      wrong
+    je      release
     mov     hFile, eax
     ; 以下过程共用
 wav:
@@ -524,6 +524,11 @@ freeMemory:
 closeFileHandle:
     INVOKE  CloseHandle, hFile
     INVOKE  DeleteFile, ADDR tempFilename
+release:
+    INVOKE  ReleaseSemaphore, 
+            canPlaying, 
+            1, 
+            NULL
 wrong:
     mov     eax, FALSE
     ret    
@@ -595,6 +600,8 @@ PlayMusic ENDP
 
 StopMusic PROC
 ;   RETURN: BOOL
+    cmp     mutexPlaying, 0
+    je      ignore
     INVOKE  WaitForSingleObject,
             mutexPlaying,
             INFINITE
@@ -603,12 +610,24 @@ StopMusic PROC
             mutexPlaying,
             1,
             NULL
+    cmp     canPlaying, 0
+    je      ignore
+    INVOKE  WaitForSingleObject,
+            canPlaying,
+            INFINITE
+    INVOKE  ReleaseSemaphore,
+            canPlaying,
+            1,
+            NULL
+ignore:
     mov     eax, TRUE
     ret
 StopMusic ENDP
 
 PauseMusic PROC
 ;   RETURN: BOOL
+    cmp     mutexIsPlaying, 0
+    je      ignore
     INVOKE  WaitForSingleObject,
             mutexIsPlaying,
             INFINITE
@@ -617,12 +636,15 @@ PauseMusic PROC
             mutexIsPlaying,
             1,
             NULL
+ignore:
     mov     eax, TRUE
     ret
 PauseMusic ENDP
 
 ContinueMusic PROC
 ;   RETURN: BOOL
+    cmp     mutexIsPlaying, 0
+    je      ignore
     INVOKE  WaitForSingleObject,
             mutexIsPlaying,
             INFINITE
@@ -631,6 +653,7 @@ ContinueMusic PROC
             mutexIsPlaying,
             1,
             NULL
+ignore:
     mov     eax, TRUE
     ret
 ContinueMusic ENDP
@@ -733,6 +756,8 @@ SetMusicTime PROC,
     mul     totalRead
     div     totalTime
     push    eax
+    cmp     mutexRead, 0
+    je      wrong
     INVOKE  WaitForSingleObject,
             mutexRead,
             INFINITE
