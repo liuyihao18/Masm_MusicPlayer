@@ -680,18 +680,18 @@ ContinueMusic ENDP
 SetVolume PROC,
     new_volume: DWORD                   ; 设置的音量大小
 ;   RETURN: BOOL
-    mov     eax, new_volume
-    mov     volume, eax
     cmp     Playing, TRUE
     jne     L1
     cmp     muted, TRUE
     je      L1
     INVOKE  waveOutSetVolume,
             hWaveOut,
-            volume
+            new_volume
     cmp     eax, MMSYSERR_NOERROR
     jne     wrong
 L1:
+    mov     eax, new_volume
+    mov     volume, eax
     mov     eax, TRUE
     ret
 wrong:

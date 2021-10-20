@@ -4,7 +4,7 @@ INCLUDE     music_api.inc
 INCLUDE     my_music.inc
 
 .data
-filename    BYTE    "1.flac", 0
+filename    BYTE    "1.wav", 0
 
 .code
 main PROC
