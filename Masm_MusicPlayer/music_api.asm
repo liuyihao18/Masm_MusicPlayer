@@ -5,10 +5,6 @@ INCLUDE     music_api.inc
 INCLUDE     my_music.inc
 INCLUDE     Winmm.inc
 INCLUDELIB  Winmm.lib
-INCLUDELIB  msvcrt.lib
-
-malloc PROTO C: DWORD   ; 动态分配内存
-free PROTO C: DWORD     ; 动态释放内存
 
 .data
 ; 参数
@@ -96,7 +92,8 @@ GetWavFormat ENDP
 GetWavToBuffer PROC PRIVATE USES ecx edx edi,
             hFile:              HANDLE,         ; 文件句柄
             musicBufferSize:    PTR DWORD       ; 指向音乐缓冲区大小的指针
-    LOCAL   musicSize:          DWORD,          ; 音乐文件大小
+    LOCAL   heapHandle:         HANDLE,         ; 堆句柄
+            musicSize:          DWORD,          ; 音乐文件大小
             musicBuffer:        PTR BYTE,       ; 指向音乐缓冲区的指针
             realRead:           DWORD           ; 实际读取的字节数
 ;   RETURN: PTR BYTE
@@ -106,16 +103,14 @@ GetWavToBuffer PROC PRIVATE USES ecx edx edi,
     cmp     eax, INVALID_FILE_SIZE
     je      wrong
     mov     musicSize, eax
-    INVOKE  malloc, musicSize                   ; 动态申请内存
+    INVOKE  GetProcessHeap
+    cmp     eax, NULL
+    je      wrong
+    mov     heapHandle, eax
+    INVOKE  HeapAlloc, heapHandle, HEAP_ZERO_MEMORY, musicSize
     cmp     eax, NULL
     je      wrong
     mov     musicBuffer, eax
-    ; 内存清空
-    mov     al, 0
-    mov     edi, musicBuffer
-    mov     ecx, musicSize
-    cld
-    rep     stosb
     ; 读取文件
     lea     edx, realRead
     sub     musicSize, WAV_HEAD_SIZE
@@ -137,7 +132,7 @@ right:
     mov     eax, musicBuffer
     ret
 freeMemory:
-    INVOKE  free, musicBuffer
+    INVOKE  HeapFree, heapHandle, 0, musicBuffer
 wrong:
     mov     eax, NULL
     ret
@@ -165,7 +160,8 @@ _PlayMusic PROC PRIVATE USES edx esi edi,
             musicSize:      DWORD,              ; 音乐大小
             waveFormat:     WAVEFORMATEX,       ; 音乐格式
             hEvent:         HANDLE              ; 回调事件句柄
-    LOCAL   buffer:         PTR BYTE,           ; 播放缓冲
+    LOCAL   heapHandle:     HANDLE,             ; 堆句柄
+            buffer:         PTR BYTE,           ; 播放缓冲
             bufferSize:     DWORD,              ; 播放缓冲大小
             realRead:       DWORD,              ; 实际播放大小
             over:           DWORD,              ; 结束标志
@@ -325,7 +321,11 @@ ignore:
     ; 计算缓存大小
     INVOKE  GetMinBufferSize, waveFormat
     mov     bufferSize, eax
-    INVOKE  malloc, bufferSize
+    INVOKE  GetProcessHeap
+    cmp     eax, NULL
+    je      closeEventHandle
+    mov     heapHandle, eax
+    INVOKE  HeapAlloc, heapHandle, HEAP_ZERO_MEMORY, bufferSize
     cmp     eax, NULL
     je      closeEventHandle
     mov     buffer, eax
@@ -488,7 +488,7 @@ L4:
             NULL
 
     mov     totalRead, 0
-    INVOKE  free, buffer    
+    INVOKE  HeapFree, heapHandle, 0, buffer
     INVOKE  Sleep, 500
     INVOKE  waveOutClose,
             hWaveOut
@@ -498,7 +498,7 @@ L4:
     je      L8
     jmp     L9
 L7:
-    INVOKE  free, musicBuffer
+    INVOKE  HeapFree, heapHandle, 0, musicBuffer
     jmp     L9
 L8:
     INVOKE  DeleteMp3Buffer, musicBuffer
@@ -519,7 +519,8 @@ right:
 closeEventHandle:
     INVOKE  CloseHandle, hEvent
 freeMemory:
-    INVOKE  free, musicBuffer
+    INVOKE  GetProcessHeap
+    INVOKE  HeapFree, eax, 0, musicBuffer
 closeFileHandle:
     INVOKE  CloseHandle, hFile
     INVOKE  DeleteFile, ADDR tempFilename
