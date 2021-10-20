@@ -494,6 +494,8 @@ L4:
             hWaveOut
     cmp     musicType, WAV
     je      L7
+    cmp     musicType, FLAC
+    je      L7
     cmp     musicType, MP3
     je      L8
     jmp     L9
