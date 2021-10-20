@@ -10,6 +10,13 @@ INCLUDELIB  Winmm.lib
 ; 参数
 WAV_HEAD_SIZE = 44
 
+; 音乐文件记录
+MusicFile STRUCT
+    filename    DWORD       ?                   ; 指向文件名的指针
+    musicType   DWORD       ?                   ; 音乐类型
+MusicFile ENDS
+aMusicFile      MusicFile   <>
+
 ; 状态量
 Playing         BOOL        FALSE               ; 允许播放状态
 isPlaying       BOOL        FALSE               ; 正在播放状态
@@ -151,9 +158,8 @@ GetMinBufferSize PROC PRIVATE USES ebx edx,
     ret
 GetMinBufferSize ENDP
 
-_PlayMusic PROC PRIVATE USES edx esi edi,
-            filename:       PTR BYTE            ; 文件名
-     LOCAL  filenameLength: DWORD,              ; 文件名长度
+_PlayMusic PROC PRIVATE USES edx esi edi
+     LOCAL  filename:       PTR BYTE,           ; 文件名            
             musicType:      DWORD,              ; 音乐类型
             hFile:          HANDLE,             ; 文件句柄
             musicBuffer:    PTR BYTE,           ; 音乐缓冲区
@@ -168,49 +174,15 @@ _PlayMusic PROC PRIVATE USES edx esi edi,
             waveHdr:        WAVEHDR             ; 播放头
 ;   RETURN: BOOL
     
-    ; 判断文件格式
-    INVOKE  lstrlen, filename
-    cmp     eax, 5
-    jb      wrong
-    mov     filenameLength, eax
-    mov     esi, filename
-    add     esi, filenameLength
-    sub     esi, 4
-    INVOKE  lstrcmp, esi, ADDR wavExtension
-    cmp     eax, 0
-    je      isWav
-    INVOKE  lstrcmp, esi, ADDR mp3Extension
-    cmp     eax, 0
-    je      isMp3
-    cmp     filenameLength, 6
-    jb      wrong
-    dec     esi
-    INVOKE  lstrcmp, esi, ADDR flacExtension
-    cmp     eax, 0
-    je      isFlac
-    jmp     wrong
-isWav:
-    mov     musicType, WAV
-    jmp     after
-isMp3:
-    mov     musicType, MP3
-    jmp     after
-isFlac:
-    mov     musicType, FLAC
-after:
-
     ; 准备播放
-    INVOKE  WaitForSingleObject,
-            mutexPlaying,
-            INFINITE
-    mov     Playing, FALSE
-    INVOKE  ReleaseSemaphore,
-            mutexPlaying,
-            1,
-            NULL
     INVOKE  WaitForSingleObject,
             canPlaying,
             INFINITE
+
+    mov     eax, aMusicFile.filename
+    mov     filename, eax
+    mov     eax, aMusicFile.musicType
+    mov     musicType, eax
 
     ; 处理文件
     INVOKE  CreateFile,
@@ -543,8 +515,9 @@ wrong:
     ret    
 _PlayMusic ENDP
 
-PlayMusic PROC USES ebx,
+PlayMusic PROC USES esi,
             filename:   PTR BYTE    ; 文件名
+    LOCAL   filenameLength: DWORD   ; 文件名长度
 ;   RETURN: BOOL
     ; 初始创建信号量
     cmp     mutexPlaying, 0
@@ -591,11 +564,44 @@ L3:
     je      wrong
     mov     mutexRead, eax
 L4:
+    INVOKE  StopMusic                       ; 终止先前的音乐播放
+    mov     eax, filename
+    mov     aMusicFile.filename, eax
+    ; 判断文件格式
+    INVOKE  lstrlen, filename
+    cmp     eax, 5
+    jb      wrong
+    mov     filenameLength, eax
+    mov     esi, filename
+    add     esi, filenameLength
+    sub     esi, 4
+    INVOKE  lstrcmp, esi, ADDR wavExtension
+    cmp     eax, 0
+    je      isWav
+    INVOKE  lstrcmp, esi, ADDR mp3Extension
+    cmp     eax, 0
+    je      isMp3
+    cmp     filenameLength, 6
+    jb      wrong
+    dec     esi
+    INVOKE  lstrcmp, esi, ADDR flacExtension
+    cmp     eax, 0
+    je      isFlac
+    jmp     wrong
+isWav:
+    mov     aMusicFile.musicType, WAV
+    jmp     after
+isMp3:
+    mov     aMusicFile.musicType, MP3
+    jmp     after
+isFlac:
+    mov     aMusicFile.musicType, FLAC
+after:
     INVOKE  CreateThread,
             NULL,
             0,
-            _PlayMusic,             ; 线程调用的函数名            
-            filename,               ; 线程调用传入的参数
+            _PlayMusic,                     ; 线程调用的函数名            
+            NULL,
             0,
             NULL
     cmp     eax, NULL
@@ -682,7 +688,6 @@ wrong:
     mov     eax, FALSE
     ret
 ContinueMusic ENDP
-
 
 SetVolume PROC,
     new_volume: DWORD                   ; 设置的音量大小
