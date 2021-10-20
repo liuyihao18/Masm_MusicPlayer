@@ -80,36 +80,36 @@ BackwardMusicTime PROTO
 ;   - 若成功，则为TRUE
 ;   - 若失败，则为FALSE
 
-; 获得播放状态
+; 获取播放状态
 GetPlaying PROTO
 ; 返回：BOOL
 ;   - 若为TRUE，表示播放进程正在执行
 ;   - 若为FALSE，表示播放进程已经停止
 
-; 获得播放状态
+; 获取播放状态
 GetIsPlaying PROTO
 ; 返回：BOOL
 ;   - 若为TRUE，表示正在播放
 ;   - 若为FALSE，表示暂停播放
 
-; 获得音量
+; 获取音量
 GetVolume PROTO
 ; 返回：DWORD
 ;   - 音量大小0~F，可以通过&80000000获取
 ;   - 高四位为右声道，低四位为左声道
 
-; 获得静音状态
+; 获取静音状态
 GetMuted PROTO
 ; 返回：BOOL
 ;   - 若为TRUE，表示静音
 ;   - 若为FALSE，表示没有静音
 
-; 获得播放总时长
+; 获取播放总时长
 GetTotalTime PROTO
 ; 返回：DWORD
 ;   - 时间单位为秒(s)
 
-; 获得已经播放的时长
+; 获取已经播放的时长
 GetPlayedTime PROTO
 ; 返回：DWORD
 ;   - 时间单位为秒(s)

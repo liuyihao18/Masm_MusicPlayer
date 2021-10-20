@@ -310,14 +310,21 @@ next:
     
     ; 设置音量
     cmp     muted, TRUE
-    je      ignore
+    je      mute
     INVOKE  waveOutSetVolume,
             hWaveOut,
             volume
     cmp     eax, MMSYSERR_NOERROR
     jne     closeEventHandle
-ignore:
-
+    jmp     L0
+mute:
+    INVOKE  waveOutSetVolume,
+            hWaveOut,
+            0
+    cmp     eax, MMSYSERR_NOERROR
+    jne     closeEventHandle
+    
+L0:
     ; 计算缓存大小
     INVOKE  GetMinBufferSize, waveFormat
     mov     bufferSize, eax
@@ -734,8 +741,8 @@ Mute PROC
             0
     cmp     eax, MMSYSERR_NOERROR
     jne     wrong
-    mov     muted, TRUE
 L1:
+    mov     muted, TRUE
     mov     eax, TRUE
     ret
 wrong:
@@ -752,8 +759,8 @@ unMute PROC
             volume
     cmp     eax, MMSYSERR_NOERROR
     jne     wrong
-    mov     muted, FALSE
 L1:
+    mov     muted, FALSE
     mov     eax, TRUE
     ret
 wrong:
