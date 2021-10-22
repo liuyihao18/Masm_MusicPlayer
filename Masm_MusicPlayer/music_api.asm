@@ -438,6 +438,7 @@ L5:
     
     ; 更新参数
     mov     eax, haveRead
+    inc     eax
     mov     edx, 0
     mul     totalTime
     div     musicSize
@@ -467,8 +468,8 @@ L6:
             1,
             NULL
 
-    mov     playedTime, 0
-    mov     totalTime, 0
+    ; mov     playedTime, 0
+    ; mov     totalTime, 0
 
     INVOKE  WaitForSingleObject,
             mutexRead,
