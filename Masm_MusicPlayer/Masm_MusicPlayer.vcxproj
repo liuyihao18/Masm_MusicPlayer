@@ -167,6 +167,7 @@
   <ItemGroup>
     <MASM Include="main.asm" />
     <MASM Include="music_api.asm" />
+    <MASM Include="my_window.asm" />
   </ItemGroup>
   <ItemGroup>
     <None Include="custom.inc" />
