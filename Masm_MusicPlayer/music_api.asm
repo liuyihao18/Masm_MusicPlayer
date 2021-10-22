@@ -357,6 +357,10 @@ L1:
             1,
             NULL
     mov     over, FALSE
+    ; 根据是否暂停填充不同数据
+    cmp     isPlaying, TRUE
+    jne     L4
+    ; 不暂停
     mov     eax, realRead
     add     eax, haveRead
     ; 判断是否到缓冲区末尾
@@ -393,6 +397,15 @@ L2: ; 没到
     jae     L3
     mov     over, TRUE
 L3:
+    jmp     L5
+L4:
+    ; 若暂停
+    mov     al, 0
+    mov     edi, buffer
+    mov     ecx, realRead
+    cld
+    rep     stosb
+L5:
     ; 组装
     mov     eax, buffer
     mov     waveHdr.lpData, eax
@@ -412,13 +425,13 @@ L3:
             esi,
             SIZEOF WAVEHDR
     cmp     eax, MMSYSERR_NOERROR
-    jne     L4
+    jne     L6
     INVOKE  waveOutWrite,
             hWaveOut,
             esi,
             SIZEOF WAVEHDR
     cmp     eax, MMSYSERR_NOERROR
-    jne     L4
+    jne     L6
     INVOKE  WaitForSingleObject,
             hEvent,
             INFINITE
@@ -430,12 +443,12 @@ L3:
     div     musicSize
     mov     playedTime, eax
     cmp     Playing, FALSE
-    je      L4
+    je      L6
     cmp     over, TRUE
-    je      L4
+    je      L6
     jmp     L1
-L4:
-    ; 循环结束        
+L6:
+    ; 循环结束
     INVOKE  WaitForSingleObject,
             mutexIsPlaying,
             INFINITE
@@ -641,11 +654,6 @@ StopMusic ENDP
 
 PauseMusic PROC
 ;   RETURN: BOOL
-    cmp     Playing, FALSE
-    je      ignore
-    INVOKE  waveOutPause, hWaveOut
-    cmp     eax, MMSYSERR_NOERROR
-    jne     wrong
     cmp     mutexIsPlaying, 0
     je      ignore
     INVOKE  WaitForSingleObject,
@@ -666,11 +674,6 @@ PauseMusic ENDP
 
 ContinueMusic PROC
 ;   RETURN: BOOL
-    cmp     Playing, FALSE
-    je      ignore
-    INVOKE  waveOutRestart, hWaveOut
-    cmp     eax, MMSYSERR_NOERROR
-    jne     wrong
     cmp     mutexIsPlaying, 0
     je      ignore
     INVOKE  WaitForSingleObject,
