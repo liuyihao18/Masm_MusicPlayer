@@ -18,14 +18,17 @@ trackBarClass   BYTE      "msctls_trackbar32", 0
 scrollClass     BYTE      "msctls_progress32", 0
 stopText        BYTE      "停止", 0
 openText        BYTE      "打开文件", 0
+playText        BYTE      "播放", 0
 backText        BYTE      "快退", 0
 pauseText       BYTE      "暂停", 0
 frontText       BYTE      "快进", 0
 zeroText        BYTE      "静音", 0
 volumeText      BYTE      "音量", 0
 scrollText      BYTE      "滚动条", 0
+hasPlayed       DWORD      0
 ofn             OPENFILENAMEA   <>
 strFileName     BYTE       255 dup(?), 0
+PerFileName     BYTE       255 dup(?), 0
 TotalTime       DWORD      ?
 
 fileFilter      BYTE      "音频(*.wav,*.mp3)",0, "*.wav;*.mp3", 0
@@ -115,10 +118,12 @@ WindowProc PROC,
         .IF eax >= TotalTime - 1
             INVOKE KillTimer, hwnd, 114
             INVOKE StopMusic
+            INVOKE SetWindowTextA, m_button_stop, ADDR playText
             jmp WinProc_Exit
         .ELSEIF TotalTime == 0
             INVOKE KillTimer, hwnd, 114
             INVOKE StopMusic
+            INVOKE SetWindowTextA, m_button_stop, ADDR playText
             jmp WinProc_Exit
         .ENDIF
         push edx
@@ -162,16 +167,31 @@ WindowProc PROC,
                     call ErrorHandler
                     jmp WinProc_Exit
                 .ENDIF
-                INVOKE GetTotalTime
-                mov TotalTime, eax
-                INVOKE SetTimer, hwnd, 114, 1000, NULL
+                mov hasPlayed, 1
+                INVOKE SetTimer, hwnd, 114, 500, NULL
             INVOKE SetFocus, hwnd 
             .ENDIF
         .ELSEIF wmID == 2
-            INVOKE StopMusic
-            INVOKE SendMessage, m_scrollbar, PBM_SETPOS, 0, 1
-            INVOKE KillTimer, hwnd, 114
-            INVOKE SetFocus, hwnd
+            .IF hasPlayed == 1
+                INVOKE  GetPlaying
+                .IF    eax == 1
+                    INVOKE StopMusic
+                    INVOKE SendMessage, m_scrollbar, PBM_SETPOS, 0, 1
+                    INVOKE KillTimer, hwnd, 114
+                    INVOKE SetFocus, hwnd
+                    INVOKE SetWindowTextA, m_button_stop, ADDR playText
+                .ELSE
+                    INVOKE PlayMusic,ADDR strFileName
+                    .IF eax == 0
+                        call ErrorHandler
+                        jmp WinProc_Exit
+                    .ENDIF
+                    INVOKE SetTimer, hwnd, 114, 500, NULL
+                    INVOKE SetWindowTextA, m_button_stop, ADDR stopText
+                .ENDIF
+            .ELSE
+                jmp WinProc_Exit
+            .ENDIF
         .ELSEIF wmID == 4
             INVOKE BackwardMusicTime
             INVOKE SetFocus, hwnd
@@ -182,7 +202,7 @@ WindowProc PROC,
                 INVOKE KillTimer, hwnd, 114
             .ELSE
                 INVOKE ContinueMusic
-                INVOKE SetTimer, hwnd, 114, 1000, 0
+                INVOKE SetTimer, hwnd, 114, 500, 0
             .ENDIF
             INVOKE SetFocus, hwnd
         .ELSEIF wmID == 6

@@ -1,6 +1,5 @@
 ; main.asm
 INCLUDE     custom.inc
-;INCLUDE     error_handle.inc
 .data
 hInstance   HINSTANCE   ?
 hMainwnd    DWORD    ?
