@@ -112,10 +112,18 @@ WindowProc PROC,
         mov eax, 0
         jmp WinProc_Exit
      .ELSEIF eax == WM_TIMER
+        INVOKE GetPlaying
+        .IF eax == 0
+            INVOKE SetWindowTextA, m_button_stop, ADDR playText
+            jmp WinProc_Exit
+        .ELSE
+            INVOKE SetWindowTextA, m_button_stop, ADDR stopText
+        .ENDIF
         INVOKE GetTotalTime
         mov TotalTime, eax
         INVOKE GetPlayedTime
-        .IF eax >= TotalTime - 1
+        mov PlayedTime, eax
+        .IF eax >= TotalTime
             INVOKE KillTimer, hwnd, 114
             INVOKE StopMusic
             INVOKE SetWindowTextA, m_button_stop, ADDR playText
@@ -131,8 +139,8 @@ WindowProc PROC,
         mov ebx, 10000
         MUL ebx
         pop ebx
-        pop edx
         DIV TotalTime
+        pop edx
         INVOKE SendMessage, m_scrollbar, PBM_SETPOS, eax, 1
         mov eax, 0
         jmp WinProc_Exit
@@ -142,19 +150,17 @@ WindowProc PROC,
         shrd    eax, eax, 16
         mov     wmEvent, ax
         
-        .IF wmID ==3
+        .IF wmID ==3    ;打开文件
            push ecx
            push esi
+           push edi
            mov ecx, 256
            mov esi, OFFSET strFileName
            mov eax, 0
         mem_loop:
            mov [esi], al
            inc esi
-           LOOPZ mem_loop
-           pop esi
-           pop ecx
-
+           LOOPNZ mem_loop
            mov ofn.lStructSize, SIZEOF OPENFILENAMEA
            mov ofn.lpstrFilter, OFFSET fileFilter
            mov ofn.lpstrFile, OFFSET strFileName
@@ -162,6 +168,19 @@ WindowProc PROC,
            mov ofn.Flags, OFN_FILEMUSTEXIST
            INVOKE GetOpenFileNameA, ADDR ofn
            .IF eax != 0
+                mov eax,    0
+                mov esi,    OFFSET strFileName
+                mov edi,    OFFSET PerFileName
+                mov ecx,    256
+                mem_cpy:
+                    mov al,     [esi]
+                    mov [edi],  al
+                    inc esi
+                    inc edi
+                    LOOPNZ   mem_cpy
+                pop edi
+                pop esi
+                pop ecx
                 INVOKE PlayMusic,ADDR strFileName
                 .IF eax == 0
                     call ErrorHandler
@@ -169,9 +188,10 @@ WindowProc PROC,
                 .ENDIF
                 mov hasPlayed, 1
                 INVOKE SetTimer, hwnd, 114, 500, NULL
+                INVOKE SetWindowTextA, m_button_stop, ADDR stopText
             INVOKE SetFocus, hwnd 
             .ENDIF
-        .ELSEIF wmID == 2
+        .ELSEIF wmID == 2           ;停止/播放
             .IF hasPlayed == 1
                 INVOKE  GetPlaying
                 .IF    eax == 1
@@ -181,7 +201,7 @@ WindowProc PROC,
                     INVOKE SetFocus, hwnd
                     INVOKE SetWindowTextA, m_button_stop, ADDR playText
                 .ELSE
-                    INVOKE PlayMusic,ADDR strFileName
+                    INVOKE PlayMusic,ADDR PerFileName
                     .IF eax == 0
                         call ErrorHandler
                         jmp WinProc_Exit
@@ -320,4 +340,4 @@ messageID  DWORD ?
     ret
 ErrorHandler ENDP
 
-END
+END 
