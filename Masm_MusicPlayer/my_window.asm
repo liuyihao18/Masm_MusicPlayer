@@ -3,6 +3,7 @@
 INCLUDE     custom.inc
 INCLUDE     music_api.inc
 INCLUDE     my_music.inc
+INCLUDE     my_window.inc
 INCLUDE     comdlg32.inc
 PUBLIC CLASS_NAME 
 PUBLIC WINDOW_TEXT
@@ -14,6 +15,7 @@ ErrorTitle      BYTE      "ERROR", 0
 MainWin WNDCLASSA <NULL,WindowProc,NULL,NULL,NULL,NULL,NULL, \
     COLOR_WINDOW,NULL,CLASS_NAME>
 buttonClass     BYTE      "Button", 0
+editClass       BYTE      "EDIT", 0
 trackBarClass   BYTE      "msctls_trackbar32", 0
 scrollClass     BYTE      "msctls_progress32", 0
 stopText        BYTE      "停止", 0
@@ -21,6 +23,7 @@ openText        BYTE      "打开文件", 0
 playText        BYTE      "播放", 0
 backText        BYTE      "快退", 0
 pauseText       BYTE      "暂停", 0
+continueText    BYTE      "继续", 0
 frontText       BYTE      "快进", 0
 zeroText        BYTE      "静音", 0
 volumeText      BYTE      "音量", 0
@@ -30,20 +33,23 @@ ofn             OPENFILENAMEA   <>
 strFileName     BYTE       255 dup(?), 0
 PerFileName     BYTE       255 dup(?), 0
 TotalTime       DWORD      ?
-
+HDefaultTimeStr BYTE       "00:00/00:00",0
+HTimeStr        BYTE       20 dup(?), 0
+HTotalTimeStr   BYTE       10  dup(?), 0
 fileFilter      BYTE      "音频(*.wav,*.mp3)",0, "*.wav;*.mp3", 0
 ps PAINTSTRUCT <>
 hdc HDC ?
 wmID                WORD    ?
 wmEvent             WORD    ?
-m_button_stop       DWORD    ?
-m_button_open       DWORD    ?
-m_button_back       DWORD    ?
-m_button_pause      DWORD    ?
-m_button_front      DWORD    ?
-m_button_zero       DWORD    ?
-m_volume            DWORD    ?
-m_scrollbar         DWORD    ?
+m_button_stop       DWORD   ?
+m_button_open       DWORD   ?
+m_button_back       DWORD   ?
+m_button_pause      DWORD   ?
+m_button_front      DWORD   ?
+m_button_zero       DWORD   ?
+m_volume            DWORD   ?
+m_scrollbar         DWORD   ?
+m_time_edit         DWORD   ?
 
 .code
 ;--------------------------------------------------------
@@ -85,7 +91,6 @@ WindowProc PROC,
                 hwnd, 6, MainWin.hInstance, NULL
         mov     m_button_front,  eax
 
-
         INVOKE CreateWindowExA, 0,ADDR buttonClass,ADDR zeroText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 
                 720, 360, 80, 30,
@@ -107,6 +112,14 @@ WindowProc PROC,
                 hwnd, 10, MainWin.hInstance, NULL
         mov     m_scrollbar,  eax
 
+        INVOKE CreateWindowExA, 0,ADDR editClass,ADDR scrollText,
+                WS_CHILD OR WS_VISIBLE OR ES_READONLY OR ES_CENTER,
+                500, 310, 180, 30,
+                hwnd, 11, MainWin.hInstance, NULL
+        mov     m_time_edit,  eax
+
+        INVOKE SetWindowText, m_time_edit, ADDR HDefaultTimeStr
+
         INVOKE SendMessageA, m_scrollbar, PBM_SETRANGE, 1, 27100000h
         INVOKE SendMessageA, m_scrollbar, PBM_SETPOS, 0, 1
         mov eax, 0
@@ -123,12 +136,7 @@ WindowProc PROC,
         mov TotalTime, eax
         INVOKE GetPlayedTime
         mov PlayedTime, eax
-        .IF eax >= TotalTime
-            INVOKE KillTimer, hwnd, 114
-            INVOKE StopMusic
-            INVOKE SetWindowTextA, m_button_stop, ADDR playText
-            jmp WinProc_Exit
-        .ELSEIF TotalTime == 0
+        .IF TotalTime == 0
             INVOKE KillTimer, hwnd, 114
             INVOKE StopMusic
             INVOKE SetWindowTextA, m_button_stop, ADDR playText
@@ -142,6 +150,20 @@ WindowProc PROC,
         DIV TotalTime
         pop edx
         INVOKE SendMessage, m_scrollbar, PBM_SETPOS, eax, 1
+
+        INVOKE TimeToString, PlayedTime, ADDR HTimeStr
+        ;push esi
+        mov esi, OFFSET HTimeStr
+        add esi, 5
+        mov ebx, 2Fh
+        mov [esi], ebx
+        inc esi
+        mov ebx, 0
+        mov [esi], ebx
+        ;pop esi
+        INVOKE TimeToString, TotalTime, ADDR HTotalTimeStr
+        INVOKE Str_concat, ADDR HTimeStr, ADDR HTotalTimeStr
+        INVOKE SetWindowText, m_time_edit, ADDR HTimeStr
         mov eax, 0
         jmp WinProc_Exit
      .ELSEIF eax == WM_COMMAND
@@ -220,9 +242,11 @@ WindowProc PROC,
             .IF eax == 1
                 INVOKE PauseMusic
                 INVOKE KillTimer, hwnd, 114
+                INVOKE SetWindowText, m_button_pause, ADDR continueText
             .ELSE
                 INVOKE ContinueMusic
                 INVOKE SetTimer, hwnd, 114, 500, 0
+                INVOKE SetWindowText, m_button_pause, ADDR pauseText
             .ENDIF
             INVOKE SetFocus, hwnd
         .ELSEIF wmID == 6
@@ -314,6 +338,68 @@ WindowProc PROC,
 WinProc_Exit:
     ret
 WindowProc ENDP
+
+;------------------------------------
+;将秒数转化成易读的字符串
+;------------------------------------
+
+TimeToString PROC USES esi edx ebx,
+    time: DWORD, pstr: PTR BYTE 
+    LOCAL minutes:  DWORD
+    LOCAL seconds:  DWORD
+    mov esi, pstr
+    mov edx, 0
+    mov eax, time
+    mov ebx, 60
+    div ebx
+    mov minutes,    eax
+    mov seconds,    edx
+    mov edx, 0
+    mov ebx, 10
+    div ebx
+    or  eax, 30h
+    or  edx, 30h
+    mov [esi], eax
+    add esi, 1
+    mov [esi], edx
+    add esi, 1
+    mov ebx, 3Ah
+    mov [esi], ebx
+    add esi, 1
+    mov edx, 0
+    mov eax, seconds
+    mov ebx, 10
+    div ebx
+    or eax, 30h
+    or edx, 30h
+    mov [esi], eax
+    add esi, 1
+    mov [esi], edx
+    mov eax, 0
+    ret
+TimeToString ENDP
+
+;------------------------------------
+;字符串拼接函数，用于时间的正确显示
+;------------------------------------
+Str_concat  PROC    target: PTR  BYTE,   source:  PTR BYTE
+    mov esi,    target
+    mov edi,    source
+    dec esi
+    end_loop:
+        inc esi
+        mov eax,  [esi]
+        cmp eax,  0
+        jnz end_loop
+    mov ecx,    SIZEOF  source
+    cpy_loop:
+        mov eax,    [edi]
+        mov [esi],  eax
+        inc esi
+        inc edi
+        LOOPNE cpy_loop
+ret
+Str_concat  ENDP
 
 ;------------------------------------
 ;错误处理函数

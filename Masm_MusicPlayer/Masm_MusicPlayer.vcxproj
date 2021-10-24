@@ -173,6 +173,7 @@
     <None Include="custom.inc" />
     <None Include="my_music.inc" />
     <None Include="music_api.inc" />
+    <None Include="my_window.inc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
