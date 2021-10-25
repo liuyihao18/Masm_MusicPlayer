@@ -36,7 +36,7 @@ TotalTime       DWORD      ?
 HDefaultTimeStr BYTE       "00:00/00:00",0
 HTimeStr        BYTE       20 dup(?), 0
 HTotalTimeStr   BYTE       10  dup(?), 0
-fileFilter      BYTE      "“Ù∆µ(*.wav,*.mp3)",0, "*.wav;*.mp3", 0
+fileFilter      BYTE      "“Ù∆µ(*.wav,*.mp3,*.flac)",0, "*.wav;*.mp3;*.flac", 0
 ps PAINTSTRUCT <>
 hdc HDC ?
 wmID                WORD    ?
