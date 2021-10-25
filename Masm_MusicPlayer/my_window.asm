@@ -36,6 +36,7 @@ TotalTime       DWORD      ?
 HDefaultTimeStr BYTE       "00:00/00:00",0
 HTimeStr        BYTE       20 dup(?), 0
 HTotalTimeStr   BYTE       10  dup(?), 0
+imagePath       BYTE       "back.bmp",0
 fileFilter      BYTE      "音频(*.wav,*.mp3,*.flac)",0, "*.wav;*.mp3;*.flac", 0
 ps PAINTSTRUCT <>
 hdc HDC ?
@@ -50,7 +51,11 @@ m_button_zero       DWORD   ?
 m_volume            DWORD   ?
 m_scrollbar         DWORD   ?
 m_time_edit         DWORD   ?
-
+hFont               DWORD   ?
+hBrush              DWORD   ?
+hBitmap             DWORD   ?
+hh                  DWORD   ?
+rect                DWORD   ?
 .code
 ;--------------------------------------------------------
 ;事件处理函数
@@ -62,10 +67,16 @@ WindowProc PROC,
     LOCAL PlayedTime:       DWORD
     mov eax,    uMsg
     .IF eax == WM_CREATE
+        
+        INVOKE GetStockObject, 17
+        mov hFont, eax
+        
         INVOKE CreateWindowExA, 0, ADDR buttonClass,ADDR stopText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 50, 350, 80, 30,
                 hwnd, 2, MainWin.hInstance, NULL
         mov     m_button_stop,  eax
+
+        INVOKE SendMessage, m_button_stop, WM_SETFONT, hFont, 1
 
         INVOKE CreateWindowExA, 0,ADDR buttonClass,ADDR openText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 
@@ -73,11 +84,15 @@ WindowProc PROC,
                 hwnd, 3, MainWin.hInstance, NULL
         mov     m_button_open,  eax
 
+        INVOKE SendMessage, m_button_open, WM_SETFONT, hFont, 1
+
         INVOKE CreateWindowExA, 0,ADDR buttonClass,ADDR backText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 
                 350, 350, 80, 30,
                 hwnd, 4, MainWin.hInstance, NULL
         mov     m_button_back,  eax
+
+        INVOKE SendMessage, m_button_back, WM_SETFONT, hFont, 1
 
         INVOKE CreateWindowExA, 0,ADDR buttonClass,ADDR pauseText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 
@@ -85,17 +100,23 @@ WindowProc PROC,
                 hwnd, 5, MainWin.hInstance, NULL
         mov     m_button_pause,  eax
 
+        INVOKE SendMessage, m_button_pause, WM_SETFONT, hFont, 1
+
         INVOKE CreateWindowExA, 0,ADDR buttonClass,ADDR frontText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 
                 550, 350, 80, 30,
                 hwnd, 6, MainWin.hInstance, NULL
         mov     m_button_front,  eax
 
+        INVOKE SendMessage, m_button_front, WM_SETFONT, hFont, 1
+
         INVOKE CreateWindowExA, 0,ADDR buttonClass,ADDR zeroText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 
                 720, 360, 80, 30,
                 hwnd, 8, MainWin.hInstance, NULL
         mov     m_button_zero,  eax
+
+        INVOKE SendMessage, m_button_zero, WM_SETFONT, hFont, 1
 
         INVOKE CreateWindowExA, 0,ADDR trackBarClass,ADDR volumeText,
                 WS_CHILD OR WS_VISIBLE OR TBS_ENABLESELRANGE OR TBS_VERT OR TBS_RIGHT,
@@ -108,7 +129,7 @@ WindowProc PROC,
 
         INVOKE CreateWindowExA, 0,ADDR scrollClass,ADDR scrollText,
                 WS_CHILD OR WS_VISIBLE,
-                300, 300, 400, 10,
+                200, 300, 500, 10,
                 hwnd, 10, MainWin.hInstance, NULL
         mov     m_scrollbar,  eax
 
@@ -120,9 +141,14 @@ WindowProc PROC,
 
         INVOKE SetWindowText, m_time_edit, ADDR HDefaultTimeStr
 
+
         INVOKE SendMessageA, m_scrollbar, PBM_SETRANGE, 1, 27100000h
         INVOKE SendMessageA, m_scrollbar, PBM_SETPOS, 0, 1
         mov eax, 0
+        jmp WinProc_Exit
+     
+     .ELSEIF eax == WM_CTLCOLORSTATIC
+        INVOKE GetStockObject, 0
         jmp WinProc_Exit
      .ELSEIF eax == WM_TIMER
         INVOKE GetPlaying
@@ -241,11 +267,11 @@ WindowProc PROC,
             INVOKE GetIsPlaying
             .IF eax == 1
                 INVOKE PauseMusic
-                INVOKE KillTimer, hwnd, 114
+                ;INVOKE KillTimer, hwnd, 114
                 INVOKE SetWindowText, m_button_pause, ADDR continueText
             .ELSE
                 INVOKE ContinueMusic
-                INVOKE SetTimer, hwnd, 114, 500, 0
+                ;INVOKE SetTimer, hwnd, 114, 500, 0
                 INVOKE SetWindowText, m_button_pause, ADDR pauseText
             .ENDIF
             INVOKE SetFocus, hwnd
@@ -321,9 +347,21 @@ WindowProc PROC,
 
      .ELSEIF eax == WM_PAINT
         INVOKE BeginPaint, hwnd, ADDR ps
-        mov hdc,    eax
+        mov hdc, eax
         INVOKE  FillRect, hdc, ADDR ps.rcPaint, 6
+        INVOKE  GetClientRect, hwnd, ADDR rect
+        INVOKE  LoadImage, NULL, ADDR imagePath,
+                               IMAGE_BITMAP, 800, 598, 
+                               LR_LOADFROMFILE
+        mov  hBitmap, eax
+        INVOKE  CreateCompatibleBitmap, hdc, 800, 598
+        INVOKE  CreateCompatibleDC, NULL
+        mov hh, eax
+        INVOKE  SelectObject, hh, hBitmap
+        INVOKE  BitBlt, hdc, 100, 10, 600, 250, hh, 0, 0, SRCCOPY
+        ;INVOKE  FillRect, hdc, ADDR ps.rcPaint, 6
         INVOKE  EndPaint, hwnd, ADDR ps
+        INVOKE  ReleaseDC, hwnd, hh
         mov eax, 0
         jmp WinProc_Exit
     .ELSEIF eax == WM_DESTROY
