@@ -26,6 +26,7 @@ pauseText       BYTE      "暂停", 0
 continueText    BYTE      "继续", 0
 frontText       BYTE      "快进", 0
 zeroText        BYTE      "静音", 0
+nonezeroText    BYTE      "取消静音",0
 volumeText      BYTE      "音量", 0
 scrollText      BYTE      "滚动条", 0
 hasPlayed       DWORD      0
@@ -72,7 +73,7 @@ WindowProc PROC,
         mov hFont, eax
         
         INVOKE CreateWindowExA, 0, ADDR buttonClass,ADDR stopText,
-                WS_CHILD OR WS_VISIBLE OR WS_BORDER, 100, 350, 80, 30,
+                WS_CHILD OR WS_VISIBLE OR WS_BORDER, 100, 380, 80, 30,
                 hwnd, 2, MainWin.hInstance, NULL
         mov     m_button_stop,  eax
 
@@ -80,7 +81,7 @@ WindowProc PROC,
 
         INVOKE CreateWindowExA, 0,ADDR buttonClass,ADDR openText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 
-                200, 350, 80, 30,
+                200, 380, 80, 30,
                 hwnd, 3, MainWin.hInstance, NULL
         mov     m_button_open,  eax
 
@@ -88,7 +89,7 @@ WindowProc PROC,
 
         INVOKE CreateWindowExA, 0,ADDR buttonClass,ADDR backText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 
-                350, 350, 80, 30,
+                350, 380, 80, 30,
                 hwnd, 4, MainWin.hInstance, NULL
         mov     m_button_back,  eax
 
@@ -96,7 +97,7 @@ WindowProc PROC,
 
         INVOKE CreateWindowExA, 0,ADDR buttonClass,ADDR pauseText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 
-                450, 350, 80, 30,
+                450, 380, 80, 30,
                 hwnd, 5, MainWin.hInstance, NULL
         mov     m_button_pause,  eax
 
@@ -104,7 +105,7 @@ WindowProc PROC,
 
         INVOKE CreateWindowExA, 0,ADDR buttonClass,ADDR frontText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 
-                550, 350, 80, 30,
+                550, 380, 80, 30,
                 hwnd, 6, MainWin.hInstance, NULL
         mov     m_button_front,  eax
 
@@ -112,7 +113,7 @@ WindowProc PROC,
 
         INVOKE CreateWindowExA, 0,ADDR buttonClass,ADDR zeroText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 
-                720, 350, 80, 30,
+                720, 380, 80, 30,
                 hwnd, 8, MainWin.hInstance, NULL
         mov     m_button_zero,  eax
 
@@ -120,7 +121,7 @@ WindowProc PROC,
 
         INVOKE CreateWindowExA, 0,ADDR trackBarClass,ADDR volumeText,
                 WS_CHILD OR WS_VISIBLE OR TBS_ENABLESELRANGE OR TBS_VERT OR TBS_RIGHT,
-                750, 0, 30, 340,
+                750, 30, 30, 340,
                 hwnd, 9, MainWin.hInstance, NULL
         mov     m_volume,  eax
 
@@ -129,13 +130,13 @@ WindowProc PROC,
 
         INVOKE CreateWindowExA, 0,ADDR scrollClass,ADDR scrollText,
                 WS_CHILD OR WS_VISIBLE,
-                100, 300, 600, 10,
+                100, 330, 600, 10,
                 hwnd, 10, MainWin.hInstance, NULL
         mov     m_scrollbar,  eax
 
         INVOKE CreateWindowExA, 0,ADDR editClass,ADDR scrollText,
                 WS_CHILD OR WS_VISIBLE OR ES_READONLY OR ES_CENTER,
-                500, 310, 180, 30,
+                500, 340, 180, 30,
                 hwnd, 11, MainWin.hInstance, NULL
         mov     m_time_edit,  eax
 
@@ -282,9 +283,12 @@ WindowProc PROC,
             INVOKE GetMuted
             .IF eax == 0
                 INVOKE Mute
+                INVOKE SetWindowText, m_button_zero, ADDR nonezeroText
             .ELSE
                 INVOKE unMute
+                INVOKE SetWindowText, m_button_zero, ADDR zeroText
             .ENDIF
+            INVOKE SetFocus, hwnd
         .ENDIF
         mov     eax, 0
         jmp WinProc_Exit
@@ -358,7 +362,7 @@ WindowProc PROC,
         INVOKE  CreateCompatibleDC, NULL
         mov hh, eax
         INVOKE  SelectObject, hh, hBitmap
-        INVOKE  BitBlt, hdc, 100, 10, 600, 280, hh, 0, 0, SRCCOPY
+        INVOKE  BitBlt, hdc, 100, 40, 600, 280, hh, 0, 0, SRCCOPY
         ;INVOKE  FillRect, hdc, ADDR ps.rcPaint, 6
         INVOKE  EndPaint, hwnd, ADDR ps
         INVOKE  ReleaseDC, hwnd, hh
