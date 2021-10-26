@@ -253,6 +253,8 @@ wav:
 next:
     mov     eax, musicSize
     mov     edx, 0
+    cmp     waveFormat.nAvgBytesPerSec, 0
+    je      freeMemory
     div     waveFormat.nAvgBytesPerSec
     mov     totalTime, eax
     mov     eax, musicSize
@@ -514,8 +516,13 @@ right:
 closeEventHandle:
     INVOKE  CloseHandle, hEvent
 freeMemory:
+    cmp     musicType, MP3
+    je      freeMp3Memory
     INVOKE  GetProcessHeap
     INVOKE  HeapFree, eax, 0, musicBuffer
+    jmp     closeFileHandle
+freeMp3Memory:
+    INVOKE  DeleteMp3Buffer, musicBuffer
 closeFileHandle:
     INVOKE  CloseHandle, hFile
     INVOKE  DeleteFile, ADDR tempFilename
