@@ -251,6 +251,7 @@ WindowProc PROC,
                     INVOKE SendMessage, m_scrollbar, PBM_SETPOS, 0, 1
                     INVOKE KillTimer, hwnd, 114
                     INVOKE SetFocus, hwnd
+                    INVOKE SetWindowTextA, m_button_pause, ADDR pauseText
                     INVOKE SetWindowTextA, m_button_stop, ADDR playText
                 .ELSE
                     INVOKE PlayMusic,ADDR PerFileName
@@ -264,6 +265,7 @@ WindowProc PROC,
             .ELSE
                 jmp WinProc_Exit
             .ENDIF
+            INVOKE SetFocus, hwnd
         .ELSEIF wmID == 4
             INVOKE BackwardMusicTime
             INVOKE SetFocus, hwnd
