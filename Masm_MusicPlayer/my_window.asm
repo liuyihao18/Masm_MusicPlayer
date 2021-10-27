@@ -270,6 +270,8 @@ WindowProc PROC,
             INVOKE BackwardMusicTime
             INVOKE SetFocus, hwnd
         .ELSEIF wmID == 5
+            INVOKE GetPlaying
+            .IF eax == 1            ;不处于播放状态时，不做任何响应
             INVOKE GetIsPlaying
             .IF eax == 1
                 INVOKE PauseMusic
@@ -279,6 +281,7 @@ WindowProc PROC,
                 INVOKE ContinueMusic
                 ;INVOKE SetTimer, hwnd, 114, 500, 0
                 INVOKE SetWindowText, m_button_pause, ADDR pauseText
+            .ENDIF
             .ENDIF
             INVOKE SetFocus, hwnd
         .ELSEIF wmID == 6
