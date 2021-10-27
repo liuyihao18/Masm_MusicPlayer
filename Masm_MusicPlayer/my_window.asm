@@ -72,6 +72,9 @@ WindowProc PROC,
         INVOKE GetStockObject, 17
         mov hFont, eax
         
+        INVOKE  CreateCompatibleDC, NULL
+        mov hh, eax
+
         INVOKE CreateWindowExA, 0, ADDR buttonClass,ADDR stopText,
                 WS_CHILD OR WS_VISIBLE OR WS_BORDER, 100, 380, 80, 30,
                 hwnd, 2, MainWin.hInstance, NULL
@@ -359,17 +362,18 @@ WindowProc PROC,
                                LR_LOADFROMFILE
         mov  hBitmap, eax
         INVOKE  CreateCompatibleBitmap, hdc, 800, 598
-        INVOKE  CreateCompatibleDC, NULL
-        mov hh, eax
+        ;INVOKE  CreateCompatibleDC, NULL
+        ;mov hh, eax
         INVOKE  SelectObject, hh, hBitmap
         INVOKE  BitBlt, hdc, 100, 40, 600, 280, hh, 0, 0, SRCCOPY
         ;INVOKE  FillRect, hdc, ADDR ps.rcPaint, 6
         INVOKE  EndPaint, hwnd, ADDR ps
-        INVOKE  ReleaseDC, hwnd, hh
+        ;INVOKE  ReleaseDC, hwnd, hh
         mov eax, 0
         jmp WinProc_Exit
     .ELSEIF eax == WM_DESTROY
         INVOKE StopMusic
+        INVOKE  ReleaseDC, hwnd, hh
         INVOKE PostQuitMessage, 0
         mov eax, 0
         jmp WinProc_Exit
